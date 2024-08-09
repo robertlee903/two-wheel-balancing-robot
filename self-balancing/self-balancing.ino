@@ -13,14 +13,13 @@ MPU6050 mpu;
 #define INTERRUPT_PIN 2  // use pin 2 on Arduino Uno & most boards
 
 // MPU control/status vars
-bool dmpReady = false;  // set true if DMP init was successful
-uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
-uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
-uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
-uint16_t fifoCount;     // count of all bytes currently in FIFO
+bool dmpReady = false; // set true if DMP init was successful
+uint8_t mpuIntStatus; // holds actual interrupt status byte from MPU
+uint8_t devStatus; // return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize; // expected DMP packet size (default is 42 bytes)
+uint16_t fifoCount; // count of all bytes currently in FIFO
 uint8_t fifoBuffer[64]; // FIFO storage buffer
-// Calibration status flag
-bool isCalibrated = false;
+bool isCalibrated = false; // Calibration status flag
 
 // orientation/motion vars
 Quaternion q;           // [w, x, y, z]         quaternion container
@@ -154,11 +153,9 @@ void setup() {
     pinMode(DIR_PIN_B, OUTPUT);
     pinMode(STEP_PIN_B, OUTPUT);
   
-    // Set output limits to allow full reverse
-    pid.SetOutputLimits(-MAX_ACCEL, MAX_ACCEL);
-    // pid.SetSampleTime(100);
-    // Ensure the PID controller is turned on
-    pid.SetMode(AUTOMATIC);
+    pid.SetOutputLimits(-MAX_ACCEL, MAX_ACCEL); // Set output limits to allow full reverse
+    pid.SetSampleTime(100); // 10ms
+    pid.SetMode(AUTOMATIC); // Ensure the PID controller is turned on
 }
 
 
@@ -227,14 +224,14 @@ void loop() {
         }
 
         if (initialised) {
-            if (inputAbs < 0.2) return;
+            // if (inputAbs < 0.2) return;
 
             // Compute PID output
             pid.Compute();
 
             // Calculate speed and steps based on the PID output
             int steps = abs(int(output)); // Convert PID output to step count
-            int speed = constrain(steps, 0, 450); // Limit speed to a maximum for safety
+            int speed = constrain(steps, 0, 400); // Limit speed to a maximum for safety
 
             Serial.print("Input: ");
             Serial.print(input);
