@@ -48,6 +48,12 @@ int16_t motorSpeedPeriodB = 0;
 int16_t motorCounterA = 0;
 int16_t motorCounterB = 0;
 
+// Bluetooth vars
+char state;
+int receivedCounter;
+
+int steeringOffset = 0; // Steering control variable
+
 // Runtime vars
 bool initialised = false; // Is the balancing system on?
 
@@ -56,6 +62,9 @@ double setPoint = 0; // Desired angle, adjust based on your setup
 double pidInput, pidOutput;
 double KP = 13, KI = 1, KD = 0.55;
 #define MAX_ACCEL 50
+
+// Dynamic Paramaters
+float turnSpeed = 10;
 
 // PID Controller
 PID pid_controller_speed(&pidInput, &pidOutput, &setPoint, KP, KI, KD, DIRECT);
@@ -220,15 +229,15 @@ void setup() {
   mpu.initialize();
   pinMode(INTERRUPT_PIN, INPUT);
 
+  // verify connection
+  Serial.println(F("Testing device connections..."));
+  Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+
   // Setup A4988 control pins
   pinMode(DIR_PIN_A, OUTPUT);
   pinMode(STEP_PIN_A, OUTPUT);
   pinMode(DIR_PIN_B, OUTPUT);
   pinMode(STEP_PIN_B, OUTPUT);
-
-  // verify connection
-  Serial.println(F("Testing device connections..."));
-  Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
   // setup timer
   setupTimer(60);
@@ -255,29 +264,34 @@ void loop() {
   if (!dmpReady || !isCalibrated) return;
 
   if (Serial.available() > 0) {
-    // Send strings like “P2.5\n”, “I0.1\n”, “D0.01\n” over the serial port to adjust Kp, Ki, and Kd respectively
     String data = Serial.readStringUntil('\n');  // Read the data until newline
     char command = data.charAt(0);  // Get the first character
-    double value = data.substring(1).toDouble();  // Convert the rest of the string to double
 
-    switch (command) {
-    case 'P':  // If the command is 'P', set Kp
-      KP = value;
-      break;
-    case 'I':  // If the command is 'I', set Ki
-      KI = value;
-      break;
-    case 'D':  // If the command is 'D', set Kd
-      KD = value;
-      break;
+    if (command == 'P' | command == 'I' || command == 'D') {
+      // Send strings like “P2.5\n”, “I0.1\n”, “D0.01\n” over the serial port to adjust Kp, Ki, and Kd respectively
+      double value = data.substring(1).toDouble();  // Convert the rest of the string to double
+      if (command == 'P') {
+        KP = value;
+      } else if (command == 'I') {
+        KI = value;
+      } else if (command == 'D') {
+        KD = value;
+      }
+      Serial.print("KP: ");
+      Serial.print(KP);
+      Serial.print("\t KI: ");
+      Serial.print(KI);
+      Serial.print("\t KD: ");
+      Serial.println(KD);
+      pid_controller_speed.SetTunings(KP, KI, KD);
     }
-    Serial.print("New KP: ");
-    Serial.print(KP);
-    Serial.print("\t KI: ");
-    Serial.print(KI);
-    Serial.print("\t KD: ");
-    Serial.println(KD);
-    pid_controller_speed.SetTunings(KP, KI, KD);
+
+    if (command == 'S') {
+      state = data.charAt(1);
+      receivedCounter = 0;
+      Serial.print("State: ");
+      Serial.println(state);
+    }
   }
 
   // read a packet from FIFO
@@ -312,17 +326,17 @@ void loop() {
       motorSpeedA += (int16_t)pidOutput;
       motorSpeedB -= (int16_t)pidOutput;
 
-      //apply steering
-      /*
-      bool should = millis() - stimer > 5000 && millis() - stimer < 5200;
-
-      if (should) {
-        motorSpeedA += 15;
-        motorSpeedB -= 15;
-      } else {
-        motorSpeedB = -motorSpeedA;
+      // Turn Left
+      if (state == 'l'){
+        motorSpeedA += turnSpeed;
+        motorSpeedB -= turnSpeed;
       }
-      */
+
+        // Turn Right
+      if (state == 'r'){
+        motorSpeedA -= turnSpeed;
+        motorSpeedB += turnSpeed;
+      }
 
       //constrain motor speed
       motorSpeedA = constrain(motorSpeedA, -500, 500);
