@@ -452,11 +452,11 @@ ISR(TIMER2_COMPA_vect) {
     throttleCounterLeftMotor = 0;                             //Reset the throttle_counter_left_motor variable
     throttleLeftMotorMemory = throttleLeftMotor;              //Load the next throttle_left_motor variable
     if (throttleLeftMotorMemory < 0) {                        //If the throttle_left_motor_memory is negative
-      PORTD |= 0b00100000;                                     //Set output 5 low to reverse the direction of the stepper controller
+      PORTD |= 0b00100000;                                     //Set output 5 high to reverse the direction of the stepper controller
       throttleLeftMotorMemory *= -1;                          //Invert the throttle_left_motor_memory variable
     }
     else {
-      PORTD &= 0b11011111;                                    // Set output 5 high for a forward direction of the stepper motor
+      PORTD &= 0b11011111;                                    // Set output 5 low for a forward direction of the stepper motor
     }
   }
   else if (throttleCounterLeftMotor == 1) {
