@@ -49,7 +49,7 @@ int   batteryVoltage;
 bool  lowBattery;
 
 // Bluetooth Comms
-char state;
+char state = "s";
 int   receivedCounter;
 
 // Loop Timing
@@ -151,7 +151,7 @@ void setup() {
   // initialize serial communication
   // (115200 chosen because it is required for Teapot Demo output, but it's
   // really up to you depending on your project)
-  Serial.begin(115200);
+  Serial.begin(9600);
   while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
   // NOTE: 8MHz or slower host processors, like the Teensy @ 3.3V or Arduino
@@ -216,43 +216,52 @@ void loop() {
   // if programming failed or the robot fallen down, don't try to do anything
   if (!dmpReady || !isCalibrated) return;
 
-  if (Serial.available() > 0) {
-    String data = Serial.readStringUntil('\n');  // Read the data until newline
-    char command = data.charAt(0);  // Get the first character
-
-    if (command == 'P' | command == 'I' || command == 'D') {
-      // Send strings like “P2.5\n”, “I0.1\n”, “D0.01\n” over the serial port to adjust Kp, Ki, and Kd respectively
-      double value = data.substring(1).toDouble();  // Convert the rest of the string to double
-      if (command == 'P') {
-        pidP = value;
-      } else if (command == 'I') {
-        pidI = value;
-      } else if (command == 'D') {
-        pidD = value;
-      }
-      Serial.print("KP: ");
-      Serial.print(pidP);
-      Serial.print("\t KI: ");
-      Serial.print(pidI);
-      Serial.print("\t KD: ");
-      Serial.println(pidD);
-      pid.setTuningParameters(pidP, pidI, pidD);
-    }
-
-    if (command == 'S') {
-      state = data.charAt(1);
-      receivedCounter = 0;
-      Serial.print("State: ");
-      Serial.println(state);
-    }
+  if (Serial.available()) {
+    state = Serial.read();
+    // Serial.print("State: ");
+    // Serial.println(state);
+    receivedCounter = 0;
   }
+  Serial.print("State: ");
+  Serial.println(state);
 
-  if (receivedCounter <= 25) {
-    receivedCounter++;
-  }
-  else {
-    state = 'a';
-  }
+  // if (Serial.available() > 0) {
+  //   String data = Serial.readStringUntil('\n');  // Read the data until newline
+  //   char command = data.charAt(0);  // Get the first character
+
+  //   if (command == 'P' | command == 'I' || command == 'D') {
+  //     // Send strings like “P2.5\n”, “I0.1\n”, “D0.01\n” over the serial port to adjust Kp, Ki, and Kd respectively
+  //     double value = data.substring(1).toDouble();  // Convert the rest of the string to double
+  //     if (command == 'P') {
+  //       pidP = value;
+  //     } else if (command == 'I') {
+  //       pidI = value;
+  //     } else if (command == 'D') {
+  //       pidD = value;
+  //     }
+  //     Serial.print("KP: ");
+  //     Serial.print(pidP);
+  //     Serial.print("\t KI: ");
+  //     Serial.print(pidI);
+  //     Serial.print("\t KD: ");
+  //     Serial.println(pidD);
+  //     pid.setTuningParameters(pidP, pidI, pidD);
+  //   }
+
+  //   if (command == 'S') {
+  //     state = data.charAt(1);
+  //     receivedCounter = 0;
+  //     Serial.print("State: ");
+  //     Serial.println(state);
+  //   }
+  // }
+
+  // if (receivedCounter <= 25) {
+  //   receivedCounter++;
+  // }
+  // else {
+  //   state = 'a';
+  // }
   
   // batteryVoltage = map(analogRead(0),0,1023,0,1250);
 
@@ -409,27 +418,27 @@ void loop() {
     throttleLeftMotor = leftMotor;
     throttleRightMotor = rightMotor;
 
-    if (reportCounter > 50) {
-      reportCounter = 0;
+    // if (reportCounter > 50) {
+    //   reportCounter = 0;
     
-      Serial.print("angle: ");
-      Serial.print(angle);
-      Serial.print(", \t selfBalanceSetpoint: ");
-      Serial.print(pid.selfBalanceSetpoint);
-      Serial.print(", \t output: ");
-      Serial.print(pid.output);
-      Serial.print(", \t throttleLeftMotor: ");
-      Serial.print(throttleLeftMotor); 
-      Serial.print(", \t throttleRightMotor: ");
-      Serial.print(throttleRightMotor);
-      Serial.println("");
-    }
+    //   Serial.print("angle: ");
+    //   Serial.print(angle);
+    //   Serial.print(", \t selfBalanceSetpoint: ");
+    //   Serial.print(pid.selfBalanceSetpoint);
+    //   Serial.print(", \t output: ");
+    //   Serial.print(pid.output);
+    //   Serial.print(", \t throttleLeftMotor: ");
+    //   Serial.print(throttleLeftMotor); 
+    //   Serial.print(", \t throttleRightMotor: ");
+    //   Serial.print(throttleRightMotor);
+    //   Serial.println("");
+    // }
   }
  
   // Delay 4 milliseconds
   while(loopTimer > micros());
   loopTimer += 4000;
-  reportCounter ++;
+  // reportCounter ++;
 }
 
 //******************
