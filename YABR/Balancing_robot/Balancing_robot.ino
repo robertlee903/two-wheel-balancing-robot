@@ -1,7 +1,7 @@
 #include <Wire.h>                                            //Include the Wire.h library so we can communicate with the gyro
 
 int gyro_address = 0x68;                                     //MPU-6050 I2C address (0x68 or 0x69)
-int acc_calibration_value = 1000;                            //Enter the accelerometer calibration value
+int acc_calibration_value = -9255;                            //Enter the accelerometer calibration value
 
 //Various settings
 float pid_p_gain = 15;                                       //Gain setting for the P-controller (15)
