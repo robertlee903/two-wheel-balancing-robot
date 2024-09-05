@@ -49,12 +49,10 @@ int   batteryVoltage;
 bool  lowBattery;
 
 // Bluetooth Comms
-char state = "s";
-int   receivedCounter;
+char state;
 
 // Loop Timing
 unsigned long loopTimer;
-unsigned long reportCounter;
 
 // Control Variables
 // float angle;
@@ -181,12 +179,16 @@ void setup() {
   
   //To create a variable pulse for controlling the stepper motors a timer is created that will execute a piece of code (subroutine) every 20us
   //This subroutine is called TIMER2_COMPA_vect
-  TCCR2A = 0;                                                               //Make sure that the TCCR2A register is set to zero
-  TCCR2B = 0;                                                               //Make sure that the TCCR2A register is set to zero
-  TIMSK2 |= (1 << OCIE2A);                                                  //Set the interupt enable bit OCIE2A in the TIMSK2 register
-  TCCR2B |= (1 << CS21);                                                    //Set the CS21 bit in the TCCRB register to set the prescaler to 8
-  OCR2A = 39;                                                               //The compare register is set to 39 => 20us / (1s / (16.000.000MHz / 8)) - 1
-  TCCR2A |= (1 << WGM21);                                                   //Set counter 2 to CTC (clear timer on compare) mode
+  TCCR2A = 0;              // Set entire TCCR2A register to 0
+  TCCR2B = 0;              // Same for TCCR2B
+  TCNT2  = 0;              // Initialize counter value to 0
+
+  OCR2A = 39;              // Set compare match register for 20us interval
+  //The compare register is set to 39 => 20us / (1s / (16.000.000MHz / 8)) - 1
+  TCCR2A |= (1 << WGM21);  // Turn on CTC mode
+  TCCR2B |= (1 << CS21);   // Set CS21 bit for 8 prescaler
+
+  TIMSK2 |= (1 << OCIE2A); // Enable timer compare interrupt
 
   // Setup PID
   pid.reset();
@@ -216,14 +218,16 @@ void loop() {
   // if programming failed or the robot fallen down, don't try to do anything
   if (!dmpReady || !isCalibrated) return;
 
-  if (Serial.available()) {
-    state = Serial.read();
-    // Serial.print("State: ");
-    // Serial.println(state);
-    receivedCounter = 0;
+  if (Serial.available() > 0) {
+    char inChar = (char)Serial.read(); // Read a character
+    if (inChar != state) {
+      state = inChar;
+
+      // Print the string to the serial monitor
+      Serial.print("State: ");
+      Serial.println(state);
+    }
   }
-  Serial.print("State: ");
-  Serial.println(state);
 
   // if (Serial.available() > 0) {
   //   String data = Serial.readStringUntil('\n');  // Read the data until newline
@@ -247,20 +251,6 @@ void loop() {
   //     Serial.println(pidD);
   //     pid.setTuningParameters(pidP, pidI, pidD);
   //   }
-
-  //   if (command == 'S') {
-  //     state = data.charAt(1);
-  //     receivedCounter = 0;
-  //     Serial.print("State: ");
-  //     Serial.println(state);
-  //   }
-  // }
-
-  // if (receivedCounter <= 25) {
-  //   receivedCounter++;
-  // }
-  // else {
-  //   state = 'a';
   // }
   
   // batteryVoltage = map(analogRead(0),0,1023,0,1250);
@@ -417,28 +407,11 @@ void loop() {
     // Copy for interrupt to use
     throttleLeftMotor = leftMotor;
     throttleRightMotor = rightMotor;
-
-    // if (reportCounter > 50) {
-    //   reportCounter = 0;
-    
-    //   Serial.print("angle: ");
-    //   Serial.print(angle);
-    //   Serial.print(", \t selfBalanceSetpoint: ");
-    //   Serial.print(pid.selfBalanceSetpoint);
-    //   Serial.print(", \t output: ");
-    //   Serial.print(pid.output);
-    //   Serial.print(", \t throttleLeftMotor: ");
-    //   Serial.print(throttleLeftMotor); 
-    //   Serial.print(", \t throttleRightMotor: ");
-    //   Serial.print(throttleRightMotor);
-    //   Serial.println("");
-    // }
   }
  
   // Delay 4 milliseconds
   while(loopTimer > micros());
   loopTimer += 4000;
-  // reportCounter ++;
 }
 
 //******************
