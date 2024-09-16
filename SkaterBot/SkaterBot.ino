@@ -1,6 +1,7 @@
 #include <MPU6050_6Axis_MotionApps20.h>
 #include <Wire.h>
 #include "PID.h"
+#include "config.h"
 
 #define INTERRUPT_PIN 2 // use pin 2 on Arduino Uno & most boards
 
@@ -12,6 +13,7 @@ uint16_t packetSize; // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount; // count of all bytes currently in FIFO
 uint8_t fifoBuffer[64]; // FIFO storage buffer
 bool isCalibrated = false; // Calibration status flag
+volatile bool mpuInterrupt = false; // indicates whether MPU interrupt pin has gone high
 
 // orientation/motion vars
 Quaternion q;           // [w, x, y, z]         quaternion container
@@ -24,16 +26,10 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 
 // Pins
 #define batteryLowIndicator 13
-#define leftPulse           6
 #define leftDirection       5
-#define rightPulse          8
+#define leftPulse           6
 #define rightDirection      7
-
-// PID Paramaters
-float pidP = 10, pidI = 1.5, pidD = 2;
-#define pidDB     5
-#define pidOPMin  -400
-#define pidOPMax  400
+#define rightPulse          8
 
 // Dynamic Paramaters
 float turnSpeed = 30;
@@ -55,7 +51,6 @@ char state;
 unsigned long loopTimer;
 
 // Control Variables
-// float angle;
 float outputLeft;
 float outputRight;
 
@@ -77,7 +72,6 @@ PID pid;
 // ================================================================
 // ===                      MPU SETUP                           ===
 // ================================================================
-volatile bool mpuInterrupt = false; // indicates whether MPU interrupt pin has gone high
 void dmpDataReady() {
   mpuInterrupt = true;
 }
@@ -98,10 +92,10 @@ void calibrateMPU() {
   devStatus = mpu.dmpInitialize();
 
   // supply your own gyro offsets here, scaled for min sensitivity
-  mpu.setXGyroOffset(79);
-  mpu.setYGyroOffset(-29);
-  mpu.setZGyroOffset(-13);
-  mpu.setZAccelOffset(971);
+  mpu.setXGyroOffset(XGyro);
+  mpu.setYGyroOffset(YGyro);
+  mpu.setZGyroOffset(ZGyro);
+  mpu.setZAccelOffset(ZAccel);
 
   // make sure it worked (returns 0 if so)
   if (devStatus == 0) {
@@ -136,10 +130,6 @@ void calibrateMPU() {
     Serial.println(F(")"));
   }
 }
-
-//******************
-// SETUP
-//******************
 
 void setup() {
   Wire.begin();
@@ -199,11 +189,6 @@ void setup() {
   robotState = Starting;
   loopTimer = micros() + 4000;
 }
-
-
-//******************
-// LOOP
-//******************
 
 void loop() {
   // Check if the MPU is in a stable orientation suitable for calibration
@@ -268,13 +253,6 @@ void loop() {
 
   // read a packet from FIFO
   if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) { // Get the Latest packet
-    // Read sensor data
-    // int16_t ax, ay, az;
-    // mpu.getAcceleration(&ax, &ay, &az);
-    
-    // Calculate tilt angle from accelerometer
-    // float angle = atan2(ax, az) * 180.0 / PI;
-
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
@@ -285,16 +263,13 @@ void loop() {
     switch (robotState) {
       case Starting:
       {
-        // angle = mpu.getAccelAngle();
         if (angle > -0.5 && angle < 0.5) {
-          // mpu.setTiltAngle(angle);
           robotState = Balancing;
         }
         break;
       }
       case Balancing:
       {
-        // angle = mpu.getTiltAngle();
         if (angle > 30 || angle < -30 || lowBattery) {
           robotState = Starting;
           pid.reset();
@@ -324,7 +299,7 @@ void loop() {
       outputRight += turnSpeed;
     }
 
-      // Forward
+    // Forward
     if (state == 'f'){
       if (pid.setpoint > -2.5) {
         pid.setpoint -= 0.05;
@@ -334,7 +309,7 @@ void loop() {
       }
     }
     
-      // Reverse
+    // Backward
     if (state == 'b'){
       if (pid.setpoint < 2.5) {
         pid.setpoint += 0.05;
@@ -344,7 +319,7 @@ void loop() {
       }
     }
 
-      // Not forward or reverse
+    // Stop
     if (state == 's') {
       if (pid.setpoint > 0.5) {
         pid.setpoint -= 0.05; 
@@ -367,7 +342,6 @@ void loop() {
     }
 
     // Motor Calculations
-
     // Compensate for the non-linear behaviour of the stepper motors
     if (outputLeft > 0) {
       outputLeft = 405 - (1/(outputLeft + 9)) * 5500;
@@ -432,10 +406,10 @@ ISR(TIMER2_COMPA_vect) {
       PORTD &= 0b11011111;                                    // Set output 5 low for a forward direction of the stepper motor
     }
   }
-  else if (throttleCounterLeftMotor == 1) {
+  else if (throttleCounterLeftMotor == 2) {
     PORTD |= 0b01000000;                                      //Set output 6 high to create a pulse for the stepper controller
   }
-  else if (throttleCounterLeftMotor == 2) {
+  else if (throttleCounterLeftMotor == 1) {
     PORTD &= 0b10111111;                                      //Set output 6 low because the pulse only has to last for 20us 
   }
 
@@ -452,10 +426,10 @@ ISR(TIMER2_COMPA_vect) {
       PORTD |= 0b10000000;                                    //Set output 7 high for a forward direction of the stepper motor
     }
   }
-  else if (throttleCounterRightMotor == 1) {
+  else if (throttleCounterRightMotor == 2) {
     PORTB |= 0b00000001;                                      //Set output 8 high to create a pulse for the stepper controller
   }
-  else if (throttleCounterRightMotor == 2) {
+  else if (throttleCounterRightMotor == 1) {
     PORTB &= 0b11111110;                                      //Set output 8 low because the pulse only has to last for 20us
   }
 }
