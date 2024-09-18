@@ -1,10 +1,10 @@
 // Gyro vars
-int XGyro = 76;
-int YGyro = -24;
-int ZGyro = -12;
-int XAccel = -2822;
-int YAccel = 953;
-int ZAccel = 970;
+int XGyro = 77;
+int YGyro = -30;
+int ZGyro = -13;
+int XAccel = -2820;
+int YAccel = 946;
+int ZAccel = 976;
 
 // PID vars
 float pidP = 10;
@@ -13,3 +13,7 @@ float pidD = 2;
 int pidDB = 5;
 int pidOPMin = -400;
 int pidOPMax = 400;
+
+// Dynamic Paramaters
+float turnSpeed = 30;
+float maxSpeed = 150;

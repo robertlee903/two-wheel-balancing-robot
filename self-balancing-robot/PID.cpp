@@ -1,7 +1,3 @@
-//
-// PID Class
-//
-
 #include "Arduino.h"
 #include "PID.h"
 

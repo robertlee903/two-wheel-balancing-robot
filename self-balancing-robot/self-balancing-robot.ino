@@ -23,16 +23,12 @@ float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
 // Pins
-#define INTERRUPT_PIN 2 // use pin 2 on Arduino Uno & most boards
-#define batteryLowIndicator 13
+#define INTERRUPT_PIN 2
 #define leftDirection       5
 #define leftPulse           6
 #define rightDirection      7
 #define rightPulse          8
-
-// Dynamic Paramaters
-float turnSpeed = 30;
-float maxSpeed = 150;
+#define batteryLowIndicator 13
 
 // State Engine
 int robotState;
@@ -44,7 +40,7 @@ int batteryVoltage;
 bool lowBattery;
 
 // Bluetooth Comms
-char state;
+char motorDirection;
 
 // Loop Timing
 unsigned long loopTimer;
@@ -181,12 +177,8 @@ void loop() {
 
   if (Serial.available() > 0) {
     char inChar = (char)Serial.read(); // Read a character
-    if (inChar != state) {
-      state = inChar;
-
-      // Print the string to the serial monitor
-      Serial.print("State: ");
-      Serial.println(state);
+    if (inChar != motorDirection) {
+      motorDirection = inChar;
     }
   }
 
@@ -233,7 +225,7 @@ void loop() {
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
   
     float angle = ypr[1] * 180/M_PI; // Get Pitch
-    Serial.println(angle);
+    // Serial.println(angle);
 
     // State Machine
     switch (robotState) {
@@ -258,45 +250,53 @@ void loop() {
         break;
       }
     }
+    // Serial.print("motorDirection: ");
+    // Serial.print(motorDirection);
+    // Serial.print("\t setpoint: ");
+    // Serial.print(pid.setpoint);
+    // Serial.print("\t selfBalanceSetpoint: ");
+    // Serial.print(pid.selfBalanceSetpoint);
+    // Serial.print("\t output: ");
+    // Serial.println(pid.output);
 
     // Calculate control signals
     outputLeft = pid.output;
     outputRight = pid.output;
 
     // Turn Left
-    if (state == 'l'){
+    if (motorDirection == 'l'){
       outputLeft += turnSpeed;
       outputRight -= turnSpeed;
     }
 
       // Turn Right
-    if (state == 'r'){
+    if (motorDirection == 'r'){
       outputLeft -= turnSpeed;
       outputRight += turnSpeed;
     }
 
     // Forward
-    if (state == 'f'){
+    if (motorDirection == 'f'){
       if (pid.setpoint > -2.5) {
         pid.setpoint -= 0.05;
       }
-      if (pid.output > -maxSpeed) {
-        pid.setpoint -= 0.005;
-      }
+      // if (pid.output > -maxSpeed) {
+      //   pid.setpoint -= 0.005;
+      // }
     }
     
     // Backward
-    if (state == 'b'){
+    if (motorDirection == 'b'){
       if (pid.setpoint < 2.5) {
         pid.setpoint += 0.05;
       }
-      if (pid.output < maxSpeed) {
-        pid.setpoint += 0.005;
-      }
+      // if (pid.output < maxSpeed) {
+      //   pid.setpoint += 0.005;
+      // }
     }
 
     // Stop
-    if (state == 's') {
+    if (motorDirection == 's') {
       if (pid.setpoint > 0.5) {
         pid.setpoint -= 0.05; 
       }
@@ -362,6 +362,7 @@ void loop() {
   // Delay 4 milliseconds
   while(loopTimer > micros());
   loopTimer += 4000;
+  // delay(2000);
 }
 
 //******************

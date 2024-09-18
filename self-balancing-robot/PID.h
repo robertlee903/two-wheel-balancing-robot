@@ -1,7 +1,3 @@
-//
-// PID Class
-//
-
 #ifndef PID_H
 #define PID_H
 
