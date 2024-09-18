@@ -3,8 +3,6 @@
 #include "PID.h"
 #include "config.h"
 
-#define INTERRUPT_PIN 2 // use pin 2 on Arduino Uno & most boards
-
 // MPU control/status vars
 bool dmpReady = false; // set true if DMP init was successful
 uint8_t mpuIntStatus; // holds actual interrupt status byte from MPU
@@ -25,6 +23,7 @@ float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
 // Pins
+#define INTERRUPT_PIN 2 // use pin 2 on Arduino Uno & most boards
 #define batteryLowIndicator 13
 #define leftDirection       5
 #define leftPulse           6
@@ -41,8 +40,8 @@ int robotState;
 #define Balancing 1
 
 // Battery Monitoring
-int   batteryVoltage;
-bool  lowBattery;
+int batteryVoltage;
+bool lowBattery;
 
 // Bluetooth Comms
 char state;
@@ -66,7 +65,7 @@ int throttleRightMotorMemory;
 
 // MPU6050 sensor setup
 MPU6050 mpu;
-
+// PID setup
 PID pid;
 
 // ================================================================
@@ -74,61 +73,6 @@ PID pid;
 // ================================================================
 void dmpDataReady() {
   mpuInterrupt = true;
-}
-
-bool isInStablePosition() {
-  // Function to determine if the current position is stable for calibration
-  // This might check for minimal movement over a certain period
-  int16_t ax, ay, az;
-  mpu.getAcceleration(&ax, &ay, &az);
-
-  // Example threshold check for stability
-  return (abs(ax) < 1000 && abs(ay) < 1000 && abs(az) > 16384 - 1000 && abs(az) < 16384 + 1000);
-}
-
-void calibrateMPU() {
-  // load and configure the DMP
-  Serial.println(F("Initializing DMP..."));
-  devStatus = mpu.dmpInitialize();
-
-  // supply your own gyro offsets here, scaled for min sensitivity
-  mpu.setXGyroOffset(XGyro);
-  mpu.setYGyroOffset(YGyro);
-  mpu.setZGyroOffset(ZGyro);
-  mpu.setZAccelOffset(ZAccel);
-
-  // make sure it worked (returns 0 if so)
-  if (devStatus == 0) {
-    // Calibration Time: generate offsets and calibrate our MPU6050
-    mpu.CalibrateAccel(6);
-    mpu.CalibrateGyro(6);
-    mpu.PrintActiveOffsets();
-    // turn on the DMP, now that it's ready
-    Serial.println(F("Enabling DMP..."));
-    mpu.setDMPEnabled(true);
-
-    // enable Arduino interrupt detection
-    Serial.print(F("Enabling interrupt detection (Arduino external interrupt "));
-    Serial.print(digitalPinToInterrupt(INTERRUPT_PIN));
-    Serial.println(F(")..."));
-    attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
-    mpuIntStatus = mpu.getIntStatus();
-
-    // set our DMP Ready flag so the main loop() function knows it's okay to use it
-    Serial.println(F("DMP ready! Waiting for first interrupt..."));
-    dmpReady = true;
-
-    // get expected DMP packet size for later comparison
-    packetSize = mpu.dmpGetFIFOPacketSize();
-  } else {
-    // ERROR!
-    // 1 = initial memory load failed
-    // 2 = DMP configuration updates failed
-    // (if it's going to break, usually the code will be 1)
-    Serial.print(F("DMP Initialization failed (code "));
-    Serial.print(devStatus);
-    Serial.println(F(")"));
-  }
 }
 
 void setup() {
@@ -158,6 +102,47 @@ void setup() {
   if (!mpu.testConnection()) {
     Serial.println("MPU6050 connection failed");
     while(1); // Endless loop
+  }
+
+  // load and configure the DMP
+  Serial.println(F("Initializing DMP..."));
+  devStatus = mpu.dmpInitialize();
+
+  // supply your own gyro offsets here, scaled for min sensitivity
+  mpu.setXGyroOffset(XGyro);
+  mpu.setYGyroOffset(YGyro);
+  mpu.setZGyroOffset(ZGyro);
+  mpu.setXAccelOffset(XAccel);
+  mpu.setYAccelOffset(YAccel);
+  mpu.setZAccelOffset(ZAccel);
+
+  // make sure it worked (returns 0 if so)
+  if (devStatus == 0) {
+    // turn on the DMP, now that it's ready
+    Serial.println(F("Enabling DMP..."));
+    mpu.setDMPEnabled(true);
+
+    // enable Arduino interrupt detection
+    Serial.print(F("Enabling interrupt detection (Arduino external interrupt "));
+    Serial.print(digitalPinToInterrupt(INTERRUPT_PIN));
+    Serial.println(F(")..."));
+    attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
+    mpuIntStatus = mpu.getIntStatus();
+
+    // set our DMP Ready flag so the main loop() function knows it's okay to use it
+    Serial.println(F("DMP ready! Waiting for first interrupt..."));
+    dmpReady = true;
+
+    // get expected DMP packet size for later comparison
+    packetSize = mpu.dmpGetFIFOPacketSize();
+  } else {
+    // ERROR!
+    // 1 = initial memory load failed
+    // 2 = DMP configuration updates failed
+    // (if it's going to break, usually the code will be 1)
+    Serial.print(F("DMP Initialization failed (code "));
+    Serial.print(devStatus);
+    Serial.println(F(")"));
   }
 
   pinMode(batteryLowIndicator, OUTPUT);
@@ -191,17 +176,8 @@ void setup() {
 }
 
 void loop() {
-  // Check if the MPU is in a stable orientation suitable for calibration
-  if (!isCalibrated) {
-    if (isInStablePosition()) {
-      calibrateMPU();
-      isCalibrated = true;
-      Serial.println("Sensor calibrated successfully!");
-    }
-  }
-
-  // if programming failed or the robot fallen down, don't try to do anything
-  if (!dmpReady || !isCalibrated) return;
+  // if programming failed, don't try to do anything
+  if (!dmpReady) return;
 
   if (Serial.available() > 0) {
     char inChar = (char)Serial.read(); // Read a character
@@ -240,7 +216,6 @@ void loop() {
   
   // batteryVoltage = map(analogRead(0),0,1023,0,1250);
 
-
   // if (batteryVoltage < 1070 && batteryVoltage > 1050) {
   //   Serial.println("Battery Warning");
   // }
@@ -258,6 +233,7 @@ void loop() {
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
   
     float angle = ypr[1] * 180/M_PI; // Get Pitch
+    Serial.println(angle);
 
     // State Machine
     switch (robotState) {

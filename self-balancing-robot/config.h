@@ -1,8 +1,10 @@
 // Gyro vars
-int XGyro = 77;
-int YGyro = 30;
-int ZGyro = -13;
-int ZAccel = 966;
+int XGyro = 76;
+int YGyro = -24;
+int ZGyro = -12;
+int XAccel = -2822;
+int YAccel = 953;
+int ZAccel = 970;
 
 // PID vars
 float pidP = 10;
