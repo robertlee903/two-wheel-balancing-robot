@@ -1,4 +1,4 @@
-# Self Balancing Robot Arduino
+# Two wheel balancing robot - Arduino
 
 ## Parts List
 1. Arduino NANO
